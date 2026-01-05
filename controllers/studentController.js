@@ -112,18 +112,40 @@ exports.updateStudent = async (req, res) => {
     if (scheduleSlots !== undefined) updates["schedule.slots"] = scheduleSlots;
     if (sessionsTotal !== undefined) updates["sessions.total"] = sessionsTotal;
 
-    // Handle Parent Update
+    // Handle Parent Update or Assignment
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    if (student.parentId && (parentName || parentPhone || parentEmail)) { 
-        const Parent = require('../models/Parents');
-        const parentUpdates = {};
-        if (parentName !== undefined) parentUpdates.fullName = parentName;
-        if (parentPhone !== undefined) parentUpdates.phone = parentPhone;
-        if (parentEmail !== undefined) parentUpdates.email = parentEmail;
-        
-        await Parent.findByIdAndUpdate(student.parentId, parentUpdates);
+    // Scenario A: Student ALREADY has a Parent -> Update Parent Info
+    if (student.parentId) { 
+        if (parentName || parentPhone || parentEmail) {
+            const Parent = require('../models/Parents');
+            const parentUpdates = {};
+            if (parentName !== undefined) parentUpdates.fullName = parentName;
+            if (parentPhone !== undefined) parentUpdates.phone = parentPhone;
+            if (parentEmail !== undefined) parentUpdates.email = parentEmail;
+            
+            await Parent.findByIdAndUpdate(student.parentId, parentUpdates);
+        }
+    } 
+    // Scenario B: Student DOES NOT have a Parent (Orphan) but Phone provided -> Assign Parent
+    else if (parentPhone) {
+         const Parent = require('../models/Parents');
+         let parent = await Parent.findOne({ phone: parentPhone });
+         
+         if (!parent) {
+             // Create new parent since not found
+             parent = await Parent.create({
+                 fullName: parentName || 'Phụ huynh',
+                 phone: parentPhone,
+                 email: parentEmail || `${parentPhone}@zchess.local`,
+                 username: parentPhone,
+                 password: '123456', 
+                 role: 'Parent'
+             });
+         }
+         // Link student to this parent
+         updates.parentId = parent._id;
     }
 
     console.log("Applying updates:", updates); // Debug log
