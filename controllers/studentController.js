@@ -30,7 +30,7 @@ exports.createStudent = async (req, res) => {
     const { 
         fullName, dateOfBirth, address, skillLevel, enrollmentDate, // Basic info
         parentName, parentPhone, parentEmail, // Parent info (Direct input)
-        scheduleDays, scheduleTime, sessionsTotal // Schedule info
+        scheduleSlots, sessionsTotal // Schedule info (New: scheduleSlots)
     } = req.body;
 
     // 1. Auto-Generate Student ID
@@ -67,8 +67,7 @@ exports.createStudent = async (req, res) => {
         enrollmentDate: enrollmentDate || new Date(),
         parentId,
         schedule: {
-            days: scheduleDays || [], // [1, 3, 5]
-            time: scheduleTime || "", // "17:30"
+            slots: scheduleSlots || [], // [{ day: 1, time: '18:00' }]
             startDate: enrollmentDate || new Date()
         },
         sessions: {
@@ -95,7 +94,7 @@ exports.updateStudent = async (req, res) => {
 
     const { 
         fullName, dateOfBirth, address, skillLevel, enrollmentDate,
-        scheduleDays, scheduleTime, sessionsTotal,
+        scheduleSlots, sessionsTotal, // New field
         parentName, parentPhone, parentEmail, 
         note 
     } = req.body;
@@ -107,21 +106,17 @@ exports.updateStudent = async (req, res) => {
     if (skillLevel !== undefined) updates.skillLevel = skillLevel;
     if (enrollmentDate !== undefined) {
         updates.enrollmentDate = enrollmentDate;
-        // Optional: Update schedule start date if enrollment date resets? 
-        // updates["schedule.startDate"] = enrollmentDate; 
     }
     if (note !== undefined) updates.note = note;
 
-    if (scheduleDays !== undefined) updates["schedule.days"] = scheduleDays;
-    if (scheduleTime !== undefined) updates["schedule.time"] = scheduleTime;
+    if (scheduleSlots !== undefined) updates["schedule.slots"] = scheduleSlots;
     if (sessionsTotal !== undefined) updates["sessions.total"] = sessionsTotal;
 
     // Handle Parent Update
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // Only update parent if student has a parentId and relevant info is provided
-    if (student.parentId && (parentName || parentPhone || parentEmail)) { // stricter check?
+    if (student.parentId && (parentName || parentPhone || parentEmail)) { 
         const Parent = require('../models/Parents');
         const parentUpdates = {};
         if (parentName !== undefined) parentUpdates.fullName = parentName;

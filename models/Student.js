@@ -9,8 +9,10 @@ const studentSchema = new mongoose.Schema({
   skillLevel: { type: String }, //level
   // Simplified Workflow Fields
   schedule: {
-      days: [{ type: Number }], // 0=Sun, 1=Mon...
-      time: { type: String }, // "18:00"
+      slots: [{ 
+          day: { type: Number }, // 0=Sun, 1=Mon...
+          time: { type: String } // "18:00"
+      }],
       startDate: { type: Date }
   },
   sessions: {
