@@ -260,14 +260,21 @@ const syncClassEnrollments = async (classId, studentIds) => {
     const lastEnrollment = await Enrollment.findOne().sort({ enrollmentId: -1 });
     const nextId = lastEnrollment && lastEnrollment.enrollmentId ? lastEnrollment.enrollmentId + 1 : 1;
 
+    // Fetch Class and Course info to populate defaults
+    const classInfo = await ClassModel.findById(classId).populate('courseId');
+    const courseFee = classInfo && classInfo.courseId ? classInfo.courseId.fee : 0;
+    const courseSessions = classInfo && classInfo.courseId ? classInfo.courseId.totalSessions : 16;
+
     await new Enrollment({
-      enrollmentId: nextId, // Note: In a high concurrency environment, this needs better handling (e.g. sequence counter)
+      enrollmentId: nextId, 
       classId,
       studentId,
-      status: 'Active', // Default status
+      status: 'Active', 
       enrollmentDate: new Date(),
-      feeAmount: 0, // Should be calculated based on course fee if needed
-      paymentStatus: 'Pending'
+      feeAmount: courseFee, 
+      paymentStatus: 'Pending',
+      sessionsTotal: courseSessions,
+      sessionsUsed: 0
     }).save();
   }
 

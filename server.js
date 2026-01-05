@@ -13,6 +13,7 @@ const attendanceRoutes = require("./routes/attendanceRoutes");
 const revenueRoutes = require("./routes/revenueRoutes"); // thêm revenue
 const expenseRoutes = require("./routes/expenseRoutes"); // thêm expense
 const financeRoutes = require("./routes/financeRoutes"); // thêm finance
+const parentRoutes = require("./routes/parentRoutes"); // thêm parent routes
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,7 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/revenues", revenueRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/finance", financeRoutes);
+app.use("/api/parents", parentRoutes);
 
 // chạy server
 const PORT = process.env.PORT || 5000;

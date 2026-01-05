@@ -480,4 +480,51 @@ exports.deleteTransaction = async (req, res) => {
       console.error(err);
       res.status(500).json({ success: false, message: "Server Error" });
     }
+};// POST /api/finance/pay-tuition
+exports.payTuition = async (req, res) => {
+    try {
+        const { enrollmentId } = req.body;
+        
+        // 1. Find Enrollment
+        const Enrollment = require("../models/Enrollment");
+        const enrollment = await Enrollment.findOne({ enrollmentId });
+        
+        if (!enrollment) {
+            return res.status(404).json({ success: false, message: "Enrollment not found" });
+        }
+        
+        if (enrollment.paymentStatus === 'paid') {
+            return res.status(400).json({ success: false, message: "Học phí đã được thanh toán" });
+        }
+        
+        // 2. Create Revenue Record
+        const lastRevenue = await Revenue.findOne().sort({ revenueId: -1 });
+        const newRevenueId = lastRevenue ? lastRevenue.revenueId + 1 : 1;
+        
+        // Get Student Name for description
+        const student = await Student.findById(enrollment.studentId);
+        const studentName = student ? student.fullName : "Học viên";
+        
+        const newRevenue = new Revenue({
+            revenueId: newRevenueId,
+            source: "Học phí",
+            amount: enrollment.feeAmount || 0,
+            description: `Thu học phí - ${studentName} - Mã GH: ${enrollmentId}`,
+            date: new Date(),
+        });
+        await newRevenue.save();
+        
+        // 3. Update Enrollment Status
+        enrollment.paymentStatus = 'paid';
+        await enrollment.save();
+        
+        res.json({ success: true, message: "Thanh toán thành công", data: {
+            enrollment,
+            revenue: newRevenue
+        }});
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };

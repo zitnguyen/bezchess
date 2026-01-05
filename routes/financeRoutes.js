@@ -10,5 +10,6 @@ router.get("/export", financeController.exportFinanceReport);
 router.post("/transactions", financeController.createTransaction);
 router.put("/transactions/:id", financeController.updateTransaction);
 router.delete("/transactions/:id", financeController.deleteTransaction);
+router.post("/pay-tuition", financeController.payTuition);
 
 module.exports = router;

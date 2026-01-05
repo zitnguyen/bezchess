@@ -7,6 +7,8 @@ const enrollmentSchema = new mongoose.Schema({
   status: String,
   feeAmount: Number,
   paymentStatus: String,
+  sessionsTotal: { type: Number, default: 0 }, // Tổng số buổi của khóa
+  sessionsUsed: { type: Number, default: 0 },  // Số buổi đã học
 });
 
 const Enrollment = mongoose.model("Enrollment", enrollmentSchema);

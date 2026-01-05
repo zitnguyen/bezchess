@@ -24,7 +24,20 @@ exports.createEnrollment = async (req, res) => {
     const lastEnrollment = await Enrollment.findOne().sort({ enrollmentId: -1 });
     const nextId = lastEnrollment && lastEnrollment.enrollmentId ? lastEnrollment.enrollmentId + 1 : 1;
 
+    // Fetch Class/Course for defaults if not provided
+    let defaults = {};
+    if (req.body.classId) {
+        const classInfo = await ClassModel.findById(req.body.classId).populate('courseId');
+        if (classInfo && classInfo.courseId) {
+            defaults.feeAmount = classInfo.courseId.fee;
+            defaults.sessionsTotal = classInfo.courseId.totalSessions;
+        }
+    }
+
     const enrollmentData = {
+        feeAmount: 0,
+        sessionsTotal: 16,
+        ...defaults,
         ...req.body,
         enrollmentId: nextId
     };
