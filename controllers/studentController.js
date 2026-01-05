@@ -171,3 +171,12 @@ exports.deleteStudent = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getStudentsByParent = async (req, res) => {
+    try {
+        const students = await Student.find({ parentId: req.params.parentId });
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};

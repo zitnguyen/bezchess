@@ -67,9 +67,13 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    console.log("LOGIN REQUEST RECEIVED:", { username, password }); // DEBUG LOG
 
+    const user = await User.findOne({ username });
+    console.log("User found:", user ? user.username : "NO USER FOUND"); // DEBUG LOG
+    
     if (user && (await user.matchPassword(password))) {
+      console.log("Password match success!"); // DEBUG LOG
       res.json({
         _id: user._id,
         username: user.username,
