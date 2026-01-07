@@ -15,7 +15,7 @@ const parentRoutes = require("./routes/parentRoutes");
 
 const app = express();
 app.use(cors({
-  origin: "http://localhost:5173",
+    origin: "https://www.zchess.work",
   credentials: true
 }));
 app.use(express.json());
