@@ -8,10 +8,6 @@ exports.getAllAttendance = async (req, res) => {
     const filter = {};
     if (classId) filter.classId = classId;
     if (date) {
-        // Find attendance records for this specific date
-        // Note: Date storage might need care (timezone), assuming string match or exact ISO
-        // Ideally store as YYYY-MM-DD string or range query. 
-        // For simplicity with current frontend sending YYYY-MM-DD:
         const start = new Date(date);
         start.setHours(0,0,0,0);
         const end = new Date(date);
@@ -28,24 +24,18 @@ exports.getAllAttendance = async (req, res) => {
   }
 };
 
-// Đánh dấu có mặt
 const generateID = () => Math.floor(100000 + Math.random() * 900000);
 
-// Đánh dấu có mặt
-// Đánh dấu có mặt
 exports.markPresent = async (req, res) => {
   try {
     const { studentId, classId, date, note } = req.body;
     
-    // Construct filter dynamically
     const filter = { studentId, date };
     if (classId) filter.classId = classId;
 
-    // Check existing record
     let record = await Attendance.findOne(filter);
     
     if (!record) {
-        // New record: create and increment session
         record = new Attendance({
              attendanceId: generateID(),
              studentId,
@@ -56,14 +46,12 @@ exports.markPresent = async (req, res) => {
         if (classId) record.classId = classId;
         await record.save();
         
-        // Increment session used on Student (Primary tracking)
         const Student = require("../models/Student");
         await Student.findByIdAndUpdate(
             studentId,
             { $inc: { "sessions.used": 1 } }
         );
 
-        // Legacy/Class: Increment session used on Enrollment if classId exists
         if (classId) {
             const Enrollment = require("../models/Enrollment");
             await Enrollment.findOneAndUpdate(
@@ -72,19 +60,16 @@ exports.markPresent = async (req, res) => {
             );
         }
     } else if (record.status !== "present") {
-        // Update from absent to present
         record.status = "present";
         if (note) record.note = note;
         await record.save();
         
-        // Increment session used on Student
         const Student = require("../models/Student");
         await Student.findByIdAndUpdate(
             studentId,
             { $inc: { "sessions.used": 1 } }
         );
 
-        // Legacy support: Increment Enrollment if exists and classId provided
         if (classId) {
             const Enrollment = require("../models/Enrollment");
             await Enrollment.findOneAndUpdate(
@@ -93,7 +78,6 @@ exports.markPresent = async (req, res) => {
             );
         }
     } else {
-        // Already present, just update note if needed
         if (note) {
             record.note = note;
             await record.save();
@@ -106,20 +90,15 @@ exports.markPresent = async (req, res) => {
   }
 };
 
-// Đánh dấu vắng mặt
-// Đánh dấu vắng mặt
 exports.markAbsent = async (req, res) => {
   try {
     const { studentId, classId, date, note } = req.body;
-    // Construct filter dynamically
     const filter = { studentId, date };
     if (classId) filter.classId = classId;
     
     let record = await Attendance.findOne(filter);
     
     if (!record) {
-         // Create as absent (no session change needed usually, or specific rule?)
-         // Usually absent = no session used.
          record = new Attendance({
              attendanceId: generateID(),
              studentId,
@@ -130,7 +109,6 @@ exports.markAbsent = async (req, res) => {
         if (classId) record.classId = classId;
         await record.save();
     } else if (record.status === "present") {
-        // Was present, now absent -> Decrement session used
         record.status = "absent";
         if (note) record.note = note;
         await record.save();
@@ -144,12 +122,11 @@ exports.markAbsent = async (req, res) => {
         if (classId) {
             const Enrollment = require("../models/Enrollment");
             await Enrollment.findOneAndUpdate(
-                { studentId, classId, sessionsUsed: { $gt: 0 } }, // Prevent negative
+                { studentId, classId, sessionsUsed: { $gt: 0 } }, 
                 { $inc: { sessionsUsed: -1 } }
             );
         }
     } else {
-         // Already absent, update note
          if (note) {
             record.note = note;
             await record.save();
@@ -162,7 +139,6 @@ exports.markAbsent = async (req, res) => {
   }
 };
 
-// Cập nhật ghi chú
 exports.updateNote = async (req, res) => {
   try {
     const attendance = await Attendance.findByIdAndUpdate(

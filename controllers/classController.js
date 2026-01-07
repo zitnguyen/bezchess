@@ -6,14 +6,6 @@ exports.getAllClasses = async (req, res) => {
     const classes = await ClassModel.aggregate([
       {
         $lookup: {
-          from: "courses",
-          localField: "courseId",
-          foreignField: "_id",
-          as: "course"
-        }
-      },
-      {
-        $lookup: {
           from: "users",
           localField: "teacherId",
           foreignField: "_id",
@@ -53,7 +45,12 @@ exports.getAllClasses = async (req, res) => {
           _id: "$_id",
           classId: { $first: "$classId" },
           className: { $first: "$className" },
-          course: { $first: { $arrayElemAt: ["$course", 0] } },
+          courseName: { $first: "$className" },
+          description: { $first: "$description" },
+          fee: { $first: "$fee" },
+          level: { $first: "$level" },
+          maxStudents: { $first: "$maxStudents" },
+          totalSessions: { $first: "$totalSessions" },
           teacher: { $first: { $arrayElemAt: ["$teacher", 0] } },
           startDate: { $first: "$startDate" },
           schedule: { $first: "$schedule" },
@@ -82,12 +79,11 @@ exports.getAllClasses = async (req, res) => {
           _id: 1,
           classId: 1,
           className: 1,
-          courseId: {
-            _id: "$course._id",
-            courseName: "$course.courseName",
-            level: "$course.level",
-            fee: "$course.fee"
-          },
+          description: 1,
+          fee: 1,
+          level: 1,
+          maxStudents: 1,
+          totalSessions: 1,
           teacherId: {
             _id: "$teacher._id",
             username: "$teacher.username",
@@ -104,23 +100,13 @@ exports.getAllClasses = async (req, res) => {
         }
       }
     ]);
-
-    console.error('=== AGGREGATION DEBUG ===');
-    console.error('Number of classes:', classes.length);
-    if (classes.length > 0) {
-      console.error('First class keys:', Object.keys(classes[0]));
-      console.error('Students field:', classes[0].students);
-    }
-    console.error('=== END DEBUG ===');
     
     res.json(classes);
   } catch (err) {
-    console.error('Error in getAllClasses:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Lấy chi tiết lớp học
 exports.getClassById = async (req, res) => {
   try {
     const mongoose = require("mongoose");
@@ -128,14 +114,7 @@ exports.getClassById = async (req, res) => {
       {
         $match: { _id: new mongoose.Types.ObjectId(req.params.id) }
       },
-      {
-        $lookup: {
-          from: "courses",
-          localField: "courseId",
-          foreignField: "_id",
-          as: "course"
-        }
-      },
+
       {
         $lookup: {
           from: "users",
@@ -177,7 +156,12 @@ exports.getClassById = async (req, res) => {
           _id: "$_id",
           classId: { $first: "$classId" },
           className: { $first: "$className" },
-          course: { $first: { $arrayElemAt: ["$course", 0] } },
+          courseName: { $first: "$className" },
+          description: { $first: "$description" },
+          fee: { $first: "$fee" },
+          level: { $first: "$level" },
+          maxStudents: { $first: "$maxStudents" },
+          totalSessions: { $first: "$totalSessions" },
           teacher: { $first: { $arrayElemAt: ["$teacher", 0] } },
           startDate: { $first: "$startDate" },
           schedule: { $first: "$schedule" },
@@ -206,12 +190,11 @@ exports.getClassById = async (req, res) => {
           _id: 1,
           classId: 1,
           className: 1,
-          courseId: {
-            _id: "$course._id",
-            courseName: "$course.courseName",
-            level: "$course.level",
-            fee: "$course.fee"
-          },
+          description: 1,
+          fee: 1,
+          level: 1,
+          maxStudents: 1,
+          totalSessions: 1,
           teacherId: {
             _id: "$teacher._id",
             username: "$teacher.username",
@@ -229,7 +212,7 @@ exports.getClassById = async (req, res) => {
     ]);
     
     if (!classes || classes.length === 0) {
-      return res.status(404).json({ message: "Class not found" });
+      return res.status(404).json({ message: "Không tìm thấy lớp học" });
     }
     
     res.json(classes[0]);
@@ -238,32 +221,24 @@ exports.getClassById = async (req, res) => {
   }
 };
 
-
-// Helper to sync enrollments
 const syncClassEnrollments = async (classId, studentIds) => {
   if (!studentIds) return;
 
-  // Ensure unique list of student IDs
   const uniqueStudentIds = [...new Set(studentIds)];
 
-  // Get current enrollments for this class
   const currentEnrollments = await Enrollment.find({ classId });
   const currentStudentIds = currentEnrollments.map(e => e.studentId.toString());
 
-  // Determine needed actions
   const toAdd = uniqueStudentIds.filter(id => !currentStudentIds.includes(id));
   const toRemove = currentStudentIds.filter(id => !uniqueStudentIds.includes(id));
 
-  // Add new enrollments
   for (const studentId of toAdd) {
-    // Generate new enrollmentId
     const lastEnrollment = await Enrollment.findOne().sort({ enrollmentId: -1 });
     const nextId = lastEnrollment && lastEnrollment.enrollmentId ? lastEnrollment.enrollmentId + 1 : 1;
 
-    // Fetch Class and Course info to populate defaults
-    const classInfo = await ClassModel.findById(classId).populate('courseId');
-    const courseFee = classInfo && classInfo.courseId ? classInfo.courseId.fee : 0;
-    const courseSessions = classInfo && classInfo.courseId ? classInfo.courseId.totalSessions : 16;
+    const classInfo = await ClassModel.findById(classId);
+    const courseFee = classInfo ? classInfo.fee : 0;
+    const courseSessions = classInfo ? classInfo.totalSessions : 16;
 
     await new Enrollment({
       enrollmentId: nextId, 
@@ -278,7 +253,6 @@ const syncClassEnrollments = async (classId, studentIds) => {
     }).save();
   }
 
-  // Remove old enrollments
   if (toRemove.length > 0) {
     await Enrollment.deleteMany({
       classId,
@@ -286,12 +260,10 @@ const syncClassEnrollments = async (classId, studentIds) => {
     });
   }
 
-  // Update class student count
   const count = await Enrollment.countDocuments({ classId });
   await ClassModel.findByIdAndUpdate(classId, { currentStudents: count });
 };
 
-// Tạo lớp học
 exports.createClass = async (req, res) => {
   try {
     const { students, ...classData } = req.body;
@@ -300,8 +272,6 @@ exports.createClass = async (req, res) => {
 
     if (students && Array.isArray(students)) {
        await syncClassEnrollments(newClass._id, students);
-       // Refetch to get updated currentStudents count if needed, or just return newClass
-       // Ideally return the class with students populated, but for now basic return is fine
     }
 
     res.status(201).json(newClass);
@@ -310,7 +280,6 @@ exports.createClass = async (req, res) => {
   }
 };
 
-// Cập nhật lớp
 exports.updateClass = async (req, res) => {
   try {
     const { students, ...updateData } = req.body;
@@ -331,11 +300,10 @@ exports.updateClass = async (req, res) => {
   }
 };
 
-// Xóa lớp
 exports.deleteClass = async (req, res) => {
   try {
     await ClassModel.findByIdAndDelete(req.params.id);
-    res.json({ message: "Class deleted" });
+    res.json({ message: "Đã xóa lớp học" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

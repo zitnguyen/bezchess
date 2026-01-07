@@ -13,12 +13,12 @@ const classSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ❗ BẮT BUỘC ObjectId + ref
-    courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      default: null,
-    },
+    description: String,
+    fee: Number,
+    level: String,
+    maxStudents: Number,
+    totalSessions: { type: Number, default: 16 },
+    durationWeeks: Number,
 
     teacherId: {
       type: mongoose.Schema.Types.ObjectId,

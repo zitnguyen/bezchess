@@ -2,7 +2,6 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const User = require("./models/User");
 const Teacher = require("./models/Teacher");
-const Course = require("./models/Course");
 const Class = require("./models/Class");
 const Student = require("./models/Student");
 const Enrollment = require("./models/Enrollment");
@@ -26,20 +25,20 @@ const seed = async () => {
         );
         console.log("Teacher 1 ready.");
 
-        // 2. Ensure Course
-        const course = await Course.findOneAndUpdate(
-            { courseName: "Nhập môn Cờ Vua" },
-            { description: "Basic Chess", durationWeeks: 12, fee: 1500000, level: "Beginner", maxStudents: 20 },
-            { upsert: true, new: true }
-        );
-        console.log("Course ready:", course.courseName);
+
 
         // 3. Ensure Class
         const cls = await Class.findOneAndUpdate(
             { className: "Nhập môn Cờ Vua - Lớp Upsert" },
             { 
                 classId: 999,
-                courseId: course._id,
+                // courseId removed
+                description: "Basic Chess", 
+                durationWeeks: 12, 
+                fee: 1500000, 
+                level: "Beginner", 
+                maxStudents: 20,
+                
                 teacherId: t1._id,
                 startDate: new Date(),
                 schedule: "T2/T4 (18:00)",

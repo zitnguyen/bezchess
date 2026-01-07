@@ -23,17 +23,16 @@ async function verifyStudentSync() {
     const classData = {
         classId: 9999,
         className: 'Test Class for Sync',
-        courseId: '69594067136751cd6ac11494', // Using a dummy ID, might need a real one if validation exists. 
-        // Note: CourseID usually needs to exist. Let's fetch courses first.
+        // Copied course fields structure
+        description: "Test Description",
+        fee: 1000000,
+        level: "Beginner",
+        maxStudents: 10,
+        totalSessions: 16
     };
 
-    const coursesRes = await axios.get(`${BASE_URL}/courses`);
-    if (coursesRes.data.length > 0) {
-        classData.courseId = coursesRes.data[0]._id;
-    } else {
-        console.error("No courses found. Cannot create class.");
-        return;
-    }
+    // Removed Course fetching logic as Course model is deleted
+    // const coursesRes = await axios.get(`${BASE_URL}/courses`);
 
     console.log('Creating class with 1 student...');
     const createRes = await axios.post(`${BASE_URL}/classes`, {

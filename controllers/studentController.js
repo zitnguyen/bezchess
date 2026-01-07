@@ -18,7 +18,7 @@ exports.getStudentById = async (req, res) => {
       "parentId",
       "fullName phone email"
     );
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) return res.status(404).json({ message: "Không tìm thấy học viên" });
     res.json(student);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -28,36 +28,32 @@ exports.getStudentById = async (req, res) => {
 exports.createStudent = async (req, res) => {
   try {
     const { 
-        fullName, dateOfBirth, address, skillLevel, enrollmentDate, // Basic info
-        parentName, parentPhone, parentEmail, // Parent info (Direct input)
-        scheduleSlots, sessionsTotal // Schedule info (New: scheduleSlots)
+        fullName, dateOfBirth, address, skillLevel, enrollmentDate,
+        parentName, parentPhone, parentEmail,
+        scheduleSlots, sessionsTotal
     } = req.body;
 
-    // 1. Auto-Generate Student ID
     const lastStudent = await Student.findOne().sort({ studentId: -1 });
     const nextId = lastStudent && lastStudent.studentId ? lastStudent.studentId + 1 : 1000;
 
-    // 2. Handle Parent (Find or Create)
     const Parent = require('../models/Parents');
     let parentId = null;
 
     if (parentPhone) {
         let parent = await Parent.findOne({ phone: parentPhone });
         if (!parent) {
-             // Create new parent
              parent = await Parent.create({
                  fullName: parentName || 'Phụ huynh',
                  phone: parentPhone,
                  email: parentEmail || `${parentPhone}@zchess.local`,
                  username: parentPhone,
-                 password: '123456', // Default
+                 password: '123456',
                  role: 'Parent'
              });
         }
         parentId = parent._id;
     }
 
-    // 3. Create Student
     const student = new Student({
         studentId: nextId,
         fullName,
@@ -67,7 +63,7 @@ exports.createStudent = async (req, res) => {
         enrollmentDate: enrollmentDate || new Date(),
         parentId,
         schedule: {
-            slots: scheduleSlots || [], // [{ day: 1, time: '18:00' }]
+            slots: scheduleSlots || [],
             startDate: enrollmentDate || new Date()
         },
         sessions: {
@@ -78,9 +74,6 @@ exports.createStudent = async (req, res) => {
 
     await student.save();
     
-    // (Optional) Auto-create Enrollment to keep Finance consistent?
-    // For now, let's stick to Student. Attendance will need to read Student directly.
-    
     res.status(201).json(student);
   } catch (err) {
     console.error(err);
@@ -90,11 +83,9 @@ exports.createStudent = async (req, res) => {
 
 exports.updateStudent = async (req, res) => {
   try {
-    console.log("updateStudent payload:", req.body); // Debug log
-
     const { 
         fullName, dateOfBirth, address, skillLevel, enrollmentDate,
-        scheduleSlots, sessionsTotal, // New field
+        scheduleSlots, sessionsTotal,
         parentName, parentPhone, parentEmail, 
         note 
     } = req.body;
@@ -112,11 +103,9 @@ exports.updateStudent = async (req, res) => {
     if (scheduleSlots !== undefined) updates["schedule.slots"] = scheduleSlots;
     if (sessionsTotal !== undefined) updates["sessions.total"] = sessionsTotal;
 
-    // Handle Parent Update or Assignment
     const student = await Student.findById(req.params.id);
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) return res.status(404).json({ message: "Không tìm thấy học viên" });
 
-    // Scenario A: Student ALREADY has a Parent -> Update Parent Info
     if (student.parentId) { 
         if (parentName || parentPhone || parentEmail) {
             const Parent = require('../models/Parents');
@@ -125,35 +114,30 @@ exports.updateStudent = async (req, res) => {
             if (parentPhone !== undefined) parentUpdates.phone = parentPhone;
             if (parentEmail !== undefined) parentUpdates.email = parentEmail;
             
-            await Parent.findByIdAndUpdate(student.parentId, parentUpdates);
+            await Parent.findByIdAndUpdate(student.parentId, parentUpdates, { runValidators: true });
         }
     } 
-    // Scenario B: Student DOES NOT have a Parent (Orphan) but Phone provided -> Assign Parent
     else if (parentPhone) {
          const Parent = require('../models/Parents');
          let parent = await Parent.findOne({ phone: parentPhone });
          
          if (!parent) {
-             // Create new parent since not found
              parent = await Parent.create({
                  fullName: parentName || 'Phụ huynh',
                  phone: parentPhone,
-                 email: parentEmail || `${parentPhone}@zchess.local`,
+                 email: parentEmail || `${parentPhone}@zchess.com`,
                  username: parentPhone,
                  password: '123456', 
                  role: 'Parent'
              });
          }
-         // Link student to this parent
          updates.parentId = parent._id;
     }
-
-    console.log("Applying updates:", updates); // Debug log
 
     const updatedStudent = await Student.findByIdAndUpdate(
         req.params.id, 
         { $set: updates }, 
-        { new: true }
+        { new: true, runValidators: true }
     );
     
     res.json(updatedStudent);
@@ -165,8 +149,25 @@ exports.updateStudent = async (req, res) => {
 
 exports.deleteStudent = async (req, res) => {
   try {
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+        return res.status(404).json({ message: "Không tìm thấy học viên" });
+    }
+
+    if (student.parentId) {
+        const siblingsCount = await Student.countDocuments({ 
+            parentId: student.parentId, 
+            _id: { $ne: student._id } 
+        });
+        
+        if (siblingsCount === 0) {
+            const Parent = require('../models/Parents');
+            await Parent.findByIdAndDelete(student.parentId);
+        }
+    }
+
     await Student.findByIdAndDelete(req.params.id);
-    res.json({ message: "Student deleted" });
+    res.json({ message: "Đã xóa học viên" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

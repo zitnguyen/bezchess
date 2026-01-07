@@ -12,10 +12,10 @@ const Attendance = require("./models/Attendance");
 
 const generateID = () => Math.floor(100000 + Math.random() * 900000); // 6 digit ID
 
-const sampleCourses = [
-    { courseName: "Nhập môn Cờ Vua", description: "Làm quen với bàn cờ, quân cờ", durationWeeks: 12, fee: 1500000, level: "Beginner", maxStudents: 15 },
-    { courseName: "Cơ bản 1", description: "Các chiến thuật cơ bản", durationWeeks: 12, fee: 2000000, level: "Basic", maxStudents: 12 },
-    { courseName: "Trung cấp Chiến lược", description: "Khai cuộc và Tàn cuộc", durationWeeks: 16, fee: 3000000, level: "Intermediate", maxStudents: 10 },
+const sampleClassData = [
+    { className: "Nhập môn Cờ Vua", description: "Làm quen với bàn cờ, quân cờ", durationWeeks: 12, fee: 1500000, level: "Beginner", maxStudents: 15 },
+    { className: "Cơ bản 1", description: "Các chiến thuật cơ bản", durationWeeks: 12, fee: 2000000, level: "Basic", maxStudents: 12 },
+    { className: "Trung cấp Chiến lược", description: "Khai cuộc và Tàn cuộc", durationWeeks: 16, fee: 3000000, level: "Intermediate", maxStudents: 10 },
 ];
 
 const sampleTeachers = [
@@ -39,15 +39,15 @@ const seed = async () => {
 
         console.log("--- Clearing existing data ---");
         await User.deleteMany({});
-        await Course.deleteMany({});
+        // await Course.deleteMany({}); // Removed
         await Class.deleteMany({});
         await Student.deleteMany({});
         await Enrollment.deleteMany({});
         await Attendance.deleteMany({});
         // Verify deletion
         const userCount = await User.countDocuments();
-        const courseCount = await Course.countDocuments();
-        console.log(`Counts after delete - Users: ${userCount}, Courses: ${courseCount}`);
+        const classCount = await Class.countDocuments();
+        console.log(`Counts after delete - Users: ${userCount}, Classes: ${classCount}`);
 
         // 1. Create Teachers
         console.log("--- Creating Teachers ---");
@@ -62,31 +62,25 @@ const seed = async () => {
         }
         console.log(`Created ${createdTeachers.length} teachers.`);
 
-        // 2. Create Courses
-        console.log("--- Creating Courses ---");
-        const createdCourses = [];
-        for (const c of sampleCourses) {
-            try {
-               const course = await Course.create(c);
-               createdCourses.push(course);
-            } catch (e) {
-                console.error("Error creating course:", c.courseName, e.message);
-            }
-        }
-        console.log(`Created ${createdCourses.length} courses.`);
-
-        // 3. Create Classes
+        // 2. Create Classes
         console.log("--- Creating Classes ---");
         const createdClasses = [];
         let classIdCounter = 1;
         
-        // Create a class for each course, assigned to a random teacher
-        for (const course of createdCourses) {
+        // Create classes directly
+        for (const data of sampleClassData) {
             const teacher = createdTeachers[Math.floor(Math.random() * createdTeachers.length)];
             const cls = await Class.create({
                 classId: classIdCounter++,
-                className: `${course.courseName} - Lớp ${String.fromCharCode(65 + classIdCounter)}`,
-                courseId: course._id,
+                className: `${data.className} - Lớp ${String.fromCharCode(65 + classIdCounter)}`,
+                // Copied from sampleClassData
+                description: data.description,
+                durationWeeks: data.durationWeeks,
+                fee: data.fee,
+                level: data.level,
+                maxStudents: data.maxStudents,
+                totalSessions: 16, // Default
+
                 teacherId: teacher._id,
                 startDate: new Date(),
                 schedule: "T3/T5 (18:00 - 19:30)",

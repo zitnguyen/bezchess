@@ -1,7 +1,6 @@
 const Parent = require('../models/Parents');
 const Student = require('../models/Student');
 
-// Get all parents
 exports.getAllParents = async (req, res) => {
   try {
     const parents = await Parent.find();
@@ -11,32 +10,36 @@ exports.getAllParents = async (req, res) => {
   }
 };
 
-// Get parent by ID
 exports.getParentById = async (req, res) => {
   try {
     const parent = await Parent.findById(req.params.id);
-    if (!parent) return res.status(404).json({ message: 'Parent not found' });
+    if (!parent) return res.status(404).json({ message: 'Không tìm thấy phụ huynh' });
     res.json(parent);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Create a new parent
 exports.createParent = async (req, res) => {
   try {
     const { fullName, phone, email, address, students } = req.body;
     
-    // Check if phone/email already exists
-    // Auto-generate credentials
     const username = phone; 
-    const password = "123456"; // Default password
-    const emailToUse = email || `${phone}@zchess.local`; // Fallback email
+    const password = "123456";
+    const emailToUse = email || `${phone}@zchess.com`;
 
-    // Check if user exists by username (phone) or email
-    const existingUser = await Parent.findOne({ $or: [{ username }, { email: emailToUse }] });
+    const existingUser = await Parent.findOne({ 
+        $or: [
+            { username }, 
+            { email: emailToUse },
+            { phone: phone }
+        ] 
+    });
+    
     if (existingUser) {
-      return res.status(400).json({ message: 'Parent with this phone/username or email already exists' });
+      if (existingUser.phone === phone) return res.status(400).json({ message: 'Số điện thoại này đã được đăng ký' });
+      if (existingUser.email === emailToUse) return res.status(400).json({ message: 'Email này đã được sử dụng' });
+      return res.status(400).json({ message: 'Phụ huynh với số điện thoại hoặc email này đã tồn tại' });
     }
 
     const parent = new Parent({
@@ -49,41 +52,58 @@ exports.createParent = async (req, res) => {
       role: 'Parent' 
     });
     
-    // If students are provided (array of IDs or Objects), logic to link them could be here,
-    // but typically we link Student -> Parent. 
-    // If specific logic is needed to update Students with this parentId, we can add it.
-    
     await parent.save();
     res.status(201).json(parent);
   } catch (err) {
+    if (err.code === 11000) {
+        if (err.keyPattern.phone) return res.status(400).json({ message: 'Số điện thoại này đã được đăng ký' });
+        if (err.keyPattern.email) return res.status(400).json({ message: 'Email này đã được sử dụng' });
+    }
     res.status(400).json({ message: err.message });
   }
 };
 
-// Update parent
 exports.updateParent = async (req, res) => {
   try {
-    const parent = await Parent.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!parent) return res.status(404).json({ message: 'Parent not found' });
+    if (req.body.phone) {
+        const duplicate = await Parent.findOne({ 
+            phone: req.body.phone, 
+            _id: { $ne: req.params.id }
+        });
+        if (duplicate) {
+            return res.status(400).json({ message: 'Số điện thoại này đã được sử dụng bởi tài khoản khác' });
+        }
+    }
+
+    const parent = await Parent.findByIdAndUpdate(req.params.id, req.body, { 
+        new: true,
+        runValidators: true
+    });
+    if (!parent) return res.status(404).json({ message: 'Không tìm thấy phụ huynh' });
     res.json(parent);
   } catch (err) {
+    if (err.code === 11000 && err.keyPattern.phone) {
+         return res.status(400).json({ message: 'Số điện thoại này đã được sử dụng bởi tài khoản khác' });
+    }
     res.status(400).json({ message: err.message });
   }
 };
 
-// Delete parent
 exports.deleteParent = async (req, res) => {
   try {
-    await Parent.findByIdAndDelete(req.params.id);
-    // Optional: Remove parentId from associated students?
-    // await Student.updateMany({ parentId: req.params.id }, { $unset: { parentId: "" } });
-    res.json({ message: 'Parent deleted' });
+    const deletedParent = await Parent.findByIdAndDelete(req.params.id);
+    if (!deletedParent) {
+        return res.status(404).json({ message: 'Không tìm thấy phụ huynh' });
+    }
+    
+    await Student.deleteMany({ parentId: req.params.id });
+    
+    res.json({ message: 'Đã xóa phụ huynh và các học viên liên quan', deletedId: req.params.id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Get students associated with a parent
 exports.getParentStudents = async (req, res) => {
     try {
         const students = await Student.find({ parentId: req.params.id });

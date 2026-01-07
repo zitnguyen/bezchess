@@ -1,26 +1,25 @@
 const User = require("../models/User");
-const Teacher = require("../models/Teacher"); // Import Teacher model
-const Admin = require("../models/Admin"); // Import Admin model to register discriminator
+const Teacher = require("../models/Teacher");
+const Admin = require("../models/Admin");
 
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
-// Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || "fallback_secret", {
     expiresIn: "30d",
   });
 };
 
-// ===================== REGISTER =====================
 exports.register = async (req, res) => {
   try {
-    const { username, fullName, email, password, role, specialization, experienceYears, certification } = req.body;
 
-    const userExists = await User.findOne({  $or: [{ email }, { username }]  });
+    const { username, fullName, email, phone, password, role, specialization, experienceYears, certification } = req.body;
+
+    const userExists = await User.findOne({  $or: [{ email }, { username }, { phone }]  });
 
     if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "Người dùng đã tồn tại" });
     }
 
     let user;
@@ -30,6 +29,7 @@ exports.register = async (req, res) => {
             username,
             fullName,
             email,
+            phone,
             password,
             role,
             specialization,
@@ -41,6 +41,7 @@ exports.register = async (req, res) => {
             username,
             fullName,
             email,
+            phone,
             password,
             role
         });
@@ -56,24 +57,20 @@ exports.register = async (req, res) => {
         token: generateToken(user._id),
       });
     } else {
-      res.status(400).json({ message: "Invalid user data" });
+      res.status(400).json({ message: "Dữ liệu người dùng không hợp lệ" });
     }
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 };
 
-// ===================== LOGIN =====================
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log("LOGIN REQUEST RECEIVED:", { username, password }); // DEBUG LOG
 
     const user = await User.findOne({ username });
-    console.log("User found:", user ? user.username : "NO USER FOUND"); // DEBUG LOG
     
     if (user && (await user.matchPassword(password))) {
-      console.log("Password match success!"); // DEBUG LOG
       res.json({
         _id: user._id,
         username: user.username,
@@ -83,22 +80,17 @@ exports.login = async (req, res) => {
         token: generateToken(user._id),
       });
     } else {
-      res.status(401).json({ message: "Invalid username or password" });
+      res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
     }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// ===================== GET ALL USERS =====================
 exports.getAllUsers = async (req, res) => {
   try {
-    // Basic filtering using req.query
-    // e.g. /users?role=Teacher
     const filter = {};
     if (req.query.role) filter.role = req.query.role;
-    
-    // Using find on User will return all docs including Teachers (discriminator magic)
     const users = await User.find(filter);
     res.json(users);
   } catch (err) {
@@ -106,12 +98,11 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// ===================== GET USER BY ID =====================
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
     res.json(user);
   } catch (err) {
@@ -119,25 +110,18 @@ exports.getUserById = async (req, res) => {
   }
 };
 
-// ===================== UPDATE USER =====================
-// ===================== UPDATE USER =====================
 exports.updateUser = async (req, res) => {
   try {
     const { password, ...updateData } = req.body;
     
-    // 1. Find user first
     let user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
-
-    // 2. Hash password if provided
     if (password && password.trim() !== "") {
         const salt = await bcrypt.genSalt(10);
         updateData.password = await bcrypt.hash(password, salt);
     }
-
-    // 3. Update based on role to ensure discriminator fields are saved
     if (user.role === 'Teacher') {
         user = await Teacher.findByIdAndUpdate(req.params.id, updateData, {
             new: true,
@@ -156,11 +140,10 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// ===================== DELETE USER =====================
 exports.deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "User deleted" });
+    res.json({ message: "Đã xóa người dùng" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

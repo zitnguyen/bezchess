@@ -17,20 +17,17 @@ exports.getAllEnrollments = async (req, res) => {
   }
 };
 
-// Tạo enrollment mới (học sinh ghi danh lớp)
 exports.createEnrollment = async (req, res) => {
   try {
-    // Generate new enrollmentId
     const lastEnrollment = await Enrollment.findOne().sort({ enrollmentId: -1 });
     const nextId = lastEnrollment && lastEnrollment.enrollmentId ? lastEnrollment.enrollmentId + 1 : 1;
 
-    // Fetch Class/Course for defaults if not provided
     let defaults = {};
     if (req.body.classId) {
-        const classInfo = await ClassModel.findById(req.body.classId).populate('courseId');
-        if (classInfo && classInfo.courseId) {
-            defaults.feeAmount = classInfo.courseId.fee;
-            defaults.sessionsTotal = classInfo.courseId.totalSessions;
+        const classInfo = await ClassModel.findById(req.body.classId);
+        if (classInfo) {
+            defaults.feeAmount = classInfo.fee;
+            defaults.sessionsTotal = classInfo.totalSessions;
         }
     }
 
@@ -45,7 +42,6 @@ exports.createEnrollment = async (req, res) => {
     const enrollment = new Enrollment(enrollmentData);
     await enrollment.save();
 
-    // Cập nhật số học sinh hiện tại của lớp
     const cls = await ClassModel.findById(req.body.classId);
     if (cls) {
         cls.currentStudents = (cls.currentStudents || 0) + 1;
@@ -58,7 +54,6 @@ exports.createEnrollment = async (req, res) => {
   }
 };
 
-// Cập nhật enrollment
 exports.updateEnrollment = async (req, res) => {
   try {
     const enrollment = await Enrollment.findByIdAndUpdate(
@@ -72,17 +67,15 @@ exports.updateEnrollment = async (req, res) => {
   }
 };
 
-// Xóa enrollment
 exports.deleteEnrollment = async (req, res) => {
   try {
     const enrollment = await Enrollment.findByIdAndDelete(req.params.id);
 
-    // Giảm số học sinh hiện tại của lớp
     const cls = await ClassModel.findById(enrollment.classId);
     cls.currentStudents -= 1;
     await cls.save();
 
-    res.json({ message: "Enrollment deleted" });
+    res.json({ message: "Đã xóa ghi danh" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
